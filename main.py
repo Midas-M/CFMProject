@@ -8,10 +8,15 @@ from sklearn.cross_validation import cross_val_score
 from sklearn.utils import check_array
 from sklearn.metrics import make_scorer
 from sklearn.preprocessing import Imputer
-nnanLimit=20
-validData=None
-timeWindow=5
+from progress.bar import Bar
+import matplotlib.pyplot as plt
+from scipy import interp, arange, exp
+from scipy.interpolate import interp1d,NearestNDInterpolator
+from decimal import Decimal
 
+nnanLimit=5
+validData=None
+bar= None
 
 def scoring_function(y_true, y_pred):
     y_true, y_pred = check_array(y_true, y_pred)
@@ -24,22 +29,36 @@ def scoring_function(y_true, y_pred):
 
 
 def missingValuesHandler(row):
-    id=row['ID']
-    date=row['date']
-    product_id=row['product_id']
-    row=row.drop('ID')
-    row=row.drop('date')
-    row=row.drop('product_id')
     nnans=row.isnull().sum()
-    total_len=len(row)
-    idx=row.index
-    if(nnans<nnanLimit):
+
+
+    if(nnans<nnanLimit and nnans>0):
+        #y_array=np.array(row.drop('ID').drop('date').drop('product_id').values)
+        #x_array=np.arange(start=0,stop=len(y_array),step=1)
+        #f_i = interp1d(x_array, y_array,fill_value=np.nan)
+        #print np.isnan(y_array).sum()
+        #print np.isnan(f_i(x_array)).sum()
+        #inter=f_i(x_array)
+        #plt.plot(x_array,y_array,'r--',x_array,inter,'o')
+        #plt.show()
         #TODO average prior and post values
-        row.fillna(method='ffill',inplace=True)
-        row.fillna(method='bfill',inplace=True)
-    else:
+        row.fillna(method="ffill",inplace=True)
+        row.fillna(method="bfill",inplace=True)
+        if(bar.index % 10000==0):
+            print bar.percent
+        bar.next()
+
+
+    elif nnans>0:
         #TODO pass dict with imputed values
-        row.fillna(value=1)
+        id=row['ID']
+        date=row['date']
+        product_id=row['product_id']
+        val=validData.loc[product_id]
+        row.fillna(value=val,inplace=True)
+        if(bar.index % 10000==0):
+            print bar.percent
+        bar.next()
     return row
 
 
@@ -55,7 +74,11 @@ training_input=training_input.set_index(['ID', 'date', 'product_id'])
 training_valid_data=training_input.copy().dropna(axis=0, how='any', subset=None, inplace=False)
 testing_valid_data=testing_input.copy().dropna(axis=0, how='any', subset=None, inplace=False)
 validData=pd.concat([training_valid_data, testing_valid_data],join='inner')
+validData=validData.reset_index()
 
+validData=validData.drop('ID',axis=1).drop('date',axis=1)
+validData=(validData.groupby('product_id').mean())
+validData=validData.mean(axis=1)
 print "Loading train targets"
 
 targets=pd.read_csv("data/challenge_output_data_training_file_prediction_of_transaction_volumes_in_financial_markets.csv", sep=';')
@@ -63,8 +86,11 @@ targets=targets.set_index(['ID'])
 data=training_input.join(targets)
 y=data['TARGET'].values
 data=data.drop('TARGET',axis=1)
-data=pd.Series(data.reset_index().apply(missingValuesHandler, axis=1).values, index=data.index)
+bar = Bar('Processing', max=len(data))
+data=data.reset_index().apply(missingValuesHandler, axis=1)
+bar.finish()
 #data=data.apply(missingValuesHandler,axis=1)
+data.to_csv("ImputedData.csv")
 X=data.values
 assert len(X) == len(y)
 reg=Regressor().getRegressor()
