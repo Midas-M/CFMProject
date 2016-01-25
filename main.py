@@ -8,7 +8,6 @@ from sklearn.cross_validation import cross_val_score
 from sklearn.utils import check_array
 from sklearn.metrics import make_scorer
 from sklearn.preprocessing import Imputer
-from progress.bar import Bar
 import matplotlib.pyplot as plt
 from scipy import interp, arange, exp
 from scipy.interpolate import interp1d,NearestNDInterpolator
@@ -16,7 +15,6 @@ from decimal import Decimal
 
 nnanLimit=5
 validData=None
-bar= None
 
 def scoring_function(y_true, y_pred):
     y_true, y_pred = check_array(y_true, y_pred)
@@ -44,9 +42,7 @@ def missingValuesHandler(row):
         #TODO average prior and post values
         row.fillna(method="ffill",inplace=True)
         row.fillna(method="bfill",inplace=True)
-        if(bar.index % 10000==0):
-            print bar.percent
-        bar.next()
+
 
 
     elif nnans>0:
@@ -56,9 +52,6 @@ def missingValuesHandler(row):
         product_id=row['product_id']
         val=validData.loc[product_id]
         row.fillna(value=val,inplace=True)
-        if(bar.index % 10000==0):
-            print bar.percent
-        bar.next()
     return row
 
 
@@ -86,10 +79,9 @@ targets=targets.set_index(['ID'])
 data=training_input.join(targets)
 y=data['TARGET'].values
 data=data.drop('TARGET',axis=1)
-bar = Bar('Processing', max=len(data))
+print "Processing"
 data=data.reset_index().apply(missingValuesHandler, axis=1)
-bar.finish()
-#data=data.apply(missingValuesHandler,axis=1)
+print "Finished processing"
 data.to_csv("ImputedData.csv")
 X=data.values
 assert len(X) == len(y)
