@@ -13,9 +13,9 @@ from sklearn.preprocessing import LabelBinarizer,LabelEncoder
 class Regressor(BaseEstimator):
     def __init__(self):
 
-        self.regressorName="gb"
+        self.regressorName="linear"
         if self.regressorName=="rf":
-            self.clf= RandomForestRegressor(n_estimators=400, max_depth=63,max_features=50, n_jobs=-1)
+            self.clf= RandomForestRegressor(n_estimators=30, max_depth=63,max_features=50, n_jobs=-1)
         elif self.regressorName=="gb":
 
             self.clf= GradientBoostingRegressor(alpha=0.9, init=None,max_depth=3, learning_rate=0.2, loss='ls'
@@ -26,7 +26,7 @@ class Regressor(BaseEstimator):
         elif self.regressorName=="ridge":
             self.clf = RidgeCV(alphas=(0.01, 0.1), fit_intercept=True, normalize=False, scoring=None, cv=5, gcv_mode=None, store_cv_values=False)
         elif self.regressorName=="linear":
-            self.clf = LinearRegression(alpha=0.01,max_iter=5000)
+            self.clf = LinearRegression()
         elif self.regressorName=="lasso":
             self.clf = LassoCV(cv=10)
         elif self.regressorName=="svr":
@@ -37,12 +37,14 @@ class Regressor(BaseEstimator):
             self.clf = TheilSenRegressor()
 
     def fit(self, X, y):
-        #X=csc_matrix(X)
+        X=csc_matrix(X)
+        print "Training Algorithm"
         self.clf.fit(X, y)
         #print self.clf.best_estimator_
 
     def predict(self, X):
-        #X=csr_matrix(X)
+        X=csr_matrix(X)
+        print "Testing Algorithm"
         return self.clf.predict(X)
 
     def getRegressor(self):

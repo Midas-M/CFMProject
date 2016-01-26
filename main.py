@@ -15,23 +15,35 @@ from decimal import Decimal
 
 nnanLimit=5
 validData=None
+#must be odd number-> the mid element is the missing
+interpolationWindow=5
 
 def scoring_function(y_true, y_pred):
-    y_true, y_pred = check_array(y_true, y_pred)
-
+    #y_true, y_pred = check_array(y_true, y_pred)
+    score=np.mean(np.abs((y_true - y_pred) / y_true)) * 100
     ## Note: does not handle mix 1d representation
     #if _is_1d(y_true):
     #    y_true, y_pred = _check_1d_array(y_true, y_pred)
+    assert score>0
+    return score
 
-    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
-
+def findNextValid(array):
+    found=0
+    point=0
+    while not found:
+        if(not array[point]==np.nan):
+            point=point+1
+        else:
+            found=1
+    return array[point]
 
 def missingValuesHandler(row):
     nnans=row.isnull().sum()
 
 
     if(nnans<nnanLimit and nnans>0):
-        #y_array=np.array(row.drop('ID').drop('date').drop('product_id').values)
+        y_array=np.array((row.drop('ID').drop('date').drop('product_id')).values)
+
         #x_array=np.arange(start=0,stop=len(y_array),step=1)
         #f_i = interp1d(x_array, y_array,fill_value=np.nan)
         #print np.isnan(y_array).sum()
@@ -58,11 +70,25 @@ def missingValuesHandler(row):
 print "Loading test set"
 
 testing_input=pd.read_csv("data/testing_input.csv")
+#testing_input.drop('ID',axis=1).drop('date',axis=1).drop('product_id',axis=1).to_csv("test_raw.csv",na_rep="NaN")
 testing_input=testing_input.set_index(['ID', 'date', 'product_id'])
 
 print "Loading train set"
 training_input=pd.read_csv("data/training_input.csv")
+#training_input.drop('ID',axis=1).drop('date',axis=1).drop('product_id',axis=1).to_csv("train_raw.csv",na_rep="NaN")
 training_input=training_input.set_index(['ID', 'date', 'product_id'])
+
+print "Loading train targets"
+
+targets=pd.read_csv("data/challenge_output_data_training_file_prediction_of_transaction_volumes_in_financial_markets.csv", sep=';')
+#targets.drop('ID',axis=1).to_csv("train_labels.csv",na_rep="NaN")
+
+targets=targets.set_index(['ID'])
+data=training_input.join(targets)
+y=data['TARGET'].values
+data=data.drop('TARGET',axis=1)
+
+
 
 training_valid_data=training_input.copy().dropna(axis=0, how='any', subset=None, inplace=False)
 testing_valid_data=testing_input.copy().dropna(axis=0, how='any', subset=None, inplace=False)
@@ -72,23 +98,16 @@ validData=validData.reset_index()
 validData=validData.drop('ID',axis=1).drop('date',axis=1)
 validData=(validData.groupby('product_id').mean())
 validData=validData.mean(axis=1)
-print "Loading train targets"
 
-targets=pd.read_csv("data/challenge_output_data_training_file_prediction_of_transaction_volumes_in_financial_markets.csv", sep=';')
-targets=targets.set_index(['ID'])
-data=training_input.join(targets)
-y=data['TARGET'].values
-data=data.drop('TARGET',axis=1)
 print "Processing"
 data=data.reset_index().apply(missingValuesHandler, axis=1)
 print "Finished processing"
 data.to_csv("ImputedData.csv")
 X=data.values
-assert len(X) == len(y)
 reg=Regressor().getRegressor()
 print "Cross-Validation"
 loss = make_scorer(scoring_function, greater_is_better=False)
-score = cross_val_score(reg, X, y,cv=5,scoring=loss).mean()
+score = cross_val_score(reg, X, y,cv=2,scoring=loss).mean()
 print("Score = %.2f" % score)
 
 print "Calculating Predictions"
